@@ -49,7 +49,7 @@ runEval1 ev = runIdentity ev
 
 eval1 :: Monad m => Env -> Exp -> m Value
 eval1 env (Lit i) = return $ IntVal i
-eval1 env (Var n) = maybe (fail ("undefined variable: " ++ n)) return
+eval1 env (Var n) = maybe (fail $ "undefined variable: " ++ n) return
     $ Map.lookup n env
 eval1 env (Plus e1 e2) = do
     ~(IntVal i1) <- eval1 env e1
@@ -103,3 +103,23 @@ eval2c env (App e1 e2) = do
     val2 <- eval2c env e2
     eval2a (Map.insert n val2 env') body
 
+-- Basic monad transformer (final version with good error messages)
+
+eval2 :: Env -> Exp -> Eval2 Value
+eval2 env (Lit i) = return $ IntVal i
+eval2 env (Var n) = case Map.lookup n env of
+    Nothing -> throwError $ "Undefined variable: " ++ n
+    Just val -> return val
+eval2 env (Plus e1 e2) = do
+    e1' <- eval2 env e1
+    e2' <- eval2 env e2
+    case (e1', e2') of
+        (IntVal i1, IntVal i2) -> return $ IntVal (i1 + i2)
+        _ -> throwError "Type error in addition"
+eval2 env (Abs n e) = return $ FunVal env n e
+eval2 env (App e1 e2) = do
+    val1 <- eval2 env e1
+    val2 <- eval2 env e2
+    case val1 of
+        FunVal env' n body -> eval2 (Map.insert n val2 env') body
+        _ -> throwError "Type error in application"
