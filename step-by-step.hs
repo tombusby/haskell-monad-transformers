@@ -1,6 +1,6 @@
 module Transformers where
 import Control.Monad.Identity
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
@@ -64,10 +64,10 @@ eval1 env (App e1 e2) = do
 
 -- Basic monad transformer (error handing added):
 
-type Eval2 α = ErrorT String Identity α
+type Eval2 α = ExceptT String Identity α
 
 runEval2 :: Eval2 α -> Either String α
-runEval2 ev = runIdentity (runErrorT ev)
+runEval2 ev = runIdentity (runExceptT ev)
 
 eval2a :: Env -> Exp -> Eval2 Value
 eval2a env (Lit i) = return $ IntVal i
@@ -94,12 +94,12 @@ eval2c env (Lit i) = return $ IntVal i
 eval2c env (Var n) = maybe (throwError $ "Undefined Variable: " ++ n) return
     $ Map.lookup n env
 eval2c env (Plus e1 e2) = do
-    IntVal i1 <- eval2c env e1
-    IntVal i2 <- eval2c env e2
+    ~(IntVal i1) <- eval2c env e1
+    ~(IntVal i2) <- eval2c env e2
     return $ IntVal (i1 + i2)
 eval2c env (Abs n e) = return $ FunVal env n e
 eval2c env (App e1 e2) = do
-    FunVal env' n body <- eval2c env e1
+    ~(FunVal env' n body) <- eval2c env e1
     val2 <- eval2c env e2
     eval2a (Map.insert n val2 env') body
 
